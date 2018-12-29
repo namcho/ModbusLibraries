@@ -30,7 +30,7 @@
 #define THREAD_MODBUSRUN_USEC	10
 
 #define REQ_LEN	10
-#define PEN_LEN	1
+#define PEN_LEN	5
 ModbusClientTCP_t ModClientTCPObj;
 ModbusPDU_t ModClientTCPPduOBJ;
 ModbusRequest_t MCReqGSMListObj[REQ_LEN];
@@ -65,8 +65,8 @@ void printCompState();
 void *ThreadReceive(void *param);
 void *ThreadModbus(void *param);
 void *ThreadCompRequest(void *param);
-uint16_t rcv_size;
-
+ssize_t rcv_size;
+uint16_t rcv_err = 0;
 int main(int argc, char *argv[]) {
 	int var;
 	pthread_t threadReceive, threadMobus, threadCompRequest;
@@ -79,10 +79,10 @@ int main(int argc, char *argv[]) {
 	modbusClientTCPSoftInit(&ModClientTCPObj, &ModClientTCPPduOBJ,
 			MCReqGSMListObj, REQ_LEN, MCPenGSMListObj, PEN_LEN, MCHeadReqGSMObj, MCHeadPenGSMObj);
 	modbusClientTCPLLInit(&ModClientTCPObj, Transmit, Receive, ReceiveStop);
-//	setModbusClientTCPRemoteIP(&ModClientTCPObj, 5, 26, 125, 14);		// GSM Modem Turkcell ip
-	setModbusClientTCPRemoteIP(&ModClientTCPObj, 213, 14, 20, 186);		// Enko ip
+	setModbusClientTCPRemoteIP(&ModClientTCPObj, 5, 26, 125, 14);		// GSM Modem Turkcell ip
+//	setModbusClientTCPRemoteIP(&ModClientTCPObj, 213, 14, 20, 186);		// Enko ip
 	setModbusClientTCPRemotePort(&ModClientTCPObj, 502);
-	setModbusClientTCPTimeout(&ModClientTCPObj, 20000);	// 2 saniye timeout 2*1000/((float)THREAD_MODBUSRUN_USEC * 0.001f)
+	setModbusClientTCPTimeout(&ModClientTCPObj, 2000);	// 0.2 saniye timeout 2*1000/((float)THREAD_MODBUSRUN_USEC * 0.001f)
 	setModbusClientTCPRetryLimit(&ModClientTCPObj, 2);
 
 	connRemoteDevice();
@@ -246,13 +246,17 @@ void printCompState(){
 }
 
 void *ThreadReceive(void *param){
-	static uint16_t rcv_err = 0;
+
 	while(1){
 		rcv_size = recv(sockid, ((ModbusClientTCP_t *)param)->buffer_rx, 260, 0);
 		if(rcv_size > 260){
 			rcv_err++;
-			printf("Receive error: %d Receive packet size beyond its limit: %d \n",rcv_err, rcv_size);
 			rcv_size = 0;
+		}
+		else if(rcv_size < 0){
+			// Hata yakalandi.
+			rcv_size = 0;
+			rcv_err++;
 		}
 	}
 
@@ -264,66 +268,14 @@ void *ThreadModbus(void *param){
 #define STATE_WAIT_MON		2
 #define STATE_COMMAND		3
 #define STATE_WAIT_COMMD	4
-//	int8_t state_comm;
+
 	ModbusClientTCP_t *modbus;
-//	ModbusClientTCPHeader_t header;
 
 	modbus = (ModbusClientTCP_t *)param;
-//	state_comm = STATE_MONITORING;
 	while(1){
 
-//		switch(state_comm){
-//		case STATE_MONITORING:
-//			printf("ThreadModbus state is STATE_MONITORING\n");
-//			if(isRequestEmpty()){
-//				modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_READ_HOLDING, 41000, 15, ccs32x_41000);
-//				modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_READ_HOLDING, 42000, 19, ccs32x_monitor);
-//				modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_READ_HOLDING, 40000, 10, ccs32x_params);
-//				state_comm = STATE_WAIT_MON;
-//			}
-//			break;
-//		case STATE_WAIT_MON:
-//			printf("ThreadModbus state is STATE_WAIT_MON\n");
-//			if(modbus->heap_pendinglist.field_used == 0){
-//				state_comm = STATE_COMMAND;
-//			}
-//			break;
-//		case STATE_COMMAND:
-//			printf("ThreadModbus state is STATE_COMMAND\n");
-//			modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_READ_HOLDING, 41000, 15, ccs32x_41000);
-//			modbusClientTCPRequestCallbackAdd(&ModClientTCPObj, CallbackCompControl);
-//			state_comm = STATE_WAIT_COMMD;
-//			break;
-//		case STATE_WAIT_COMMD:
-//			printf("ThreadModbus state is STATE_WAIT_COMMD\n");
-//			if(modbus->heap_pendinglist.field_used == 0){
-//				state_comm = STATE_MONITORING;
-//			}
-//			break;
-//		default:
-//			state_comm = STATE_MONITORING;
-//			break;
-//		}
-
 		confirmation = ModbusClientTCPRun(modbus);
-//		header = getModbusClientTCPHeaderLastExecutedReq(&ModClientTCPObj);
-//		if(confirmation.receive_conf.status == MCTCP_RUN_NEGATIVE){
-//			printf("Receive confirmation NEGATIVE.\n");
-//			printf("Last completed header transaction: %d\n", header.transaction);
-//			printf("Last completed header protocol: %d\n", header.protocol);
-//			printf("Last completed header len: %d\n", header.len);
-//			printf("Last completed header unit-id: %d\n", header.unit_id);
-//		}
-//		else if(confirmation.receive_conf.status == MCTCP_RUN_POZITIVE){
-//			printf("Receive confirmation POZITIVE.\n");
-//			printf("Last completed header transaction: %d\n", header.transaction);
-//			printf("Last completed header protocol: %d\n", header.protocol);
-//			printf("Last completed header len: %d\n", header.len);
-//			printf("Last completed header unit-id: %d\n", header.unit_id);
-//		}
-//		printCompState();
-//		printf("Head: %d  Tail: %d\n", ModClientTCPObj.reqlist_obj.queue.head, ModClientTCPObj.reqlist_obj.queue.tail);
-//		sleep(1);
+
 		usleep(THREAD_MODBUSRUN_USEC);
 	}
 
@@ -333,7 +285,8 @@ void *ThreadModbus(void *param){
 void *ThreadCompRequest(void *param){
 	int8_t state_comm;
 	ModbusClientTCP_t *modbus;
-	ModbusClientTCPHeader_t header;
+	ModbusClientTCPHeader_t header, header_prv;
+	static uint16_t rcv_err_prv = 0;
 
 	modbus = (ModbusClientTCP_t *)param;
 	while(1){
@@ -362,6 +315,7 @@ void *ThreadCompRequest(void *param){
 		case STATE_WAIT_COMMD:
 			printf("ThreadModbus state is STATE_WAIT_COMMD\n");
 			if(modbus->heap_pendinglist.field_used == 0){
+				// Logger burada calisacak.
 				state_comm = STATE_MONITORING;
 			}
 			break;
@@ -370,14 +324,25 @@ void *ThreadCompRequest(void *param){
 			break;
 		}
 
-		printCompState();
+		if(rcv_err != rcv_err_prv){
+
+			printf("Receive error has been catch up. Receive err counter is :%d\n",rcv_err);
+			rcv_err_prv = rcv_err;
+			close(sockid);
+			connRemoteDevice();
+		}
+
 		header = getModbusClientTCPHeaderLastExecutedReq(&ModClientTCPObj);
-		printf("Last completed header transaction: %d\n", header.transaction);
-		printf("Last completed header protocol: %d\n", header.protocol);
-		printf("Last completed header len: %d\n", header.len);
-		printf("Last completed header unit-id: %d\n", header.unit_id);
-		printf("Head: %d  Tail: %d\n", ModClientTCPObj.reqlist_obj.queue.head, ModClientTCPObj.reqlist_obj.queue.tail);
-		sleep(2);
+		if(header.transaction != header_prv.transaction){
+			printCompState();
+			printf("Last completed header transaction: %d\n", header.transaction);
+			printf("Last completed header protocol: %d\n", header.protocol);
+			printf("Last completed header len: %d\n", header.len);
+			printf("Last completed header unit-id: %d\n", header.unit_id);
+			printf("Head: %d  Tail: %d\n", ModClientTCPObj.reqlist_obj.queue.head, ModClientTCPObj.reqlist_obj.queue.tail);
+		}
+		header_prv = header;
+		sleep(1);
 	}
 	return NULL;
 }

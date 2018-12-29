@@ -107,7 +107,7 @@ typedef struct{
 	int8_t (*IReceiveStop_LL)();
 
 
-}ModbusClientTCP_t;
+}ModbusClientTCP_t, *PModbusClientTCP_t;
 /*
  * @brief ModbusClientTCP modulu icin tahsis edilen ram alanlari atamasi ve
  * 					modul degiskenlerine ilk degerleri veriliyor
@@ -128,7 +128,7 @@ typedef struct{
  * @postcondition Yok
  * @return Yok
  */
-void modbusClientTCPSoftInit(ModbusClientTCP_t *mctcp_obj, ModbusPDU_t *pdu_source,
+void modbusClientTCPSoftInit(PModbusClientTCP_t ModbusClientTCPObj, ModbusPDU_t *pdu_source,
 		ModbusRequest_t *request_location, uint16_t request_quantity,
 		PendingItem_t *pendings_location, uint16_t transaction_max,
 		ModbusClientTCPHeader_t *header_request_location, ModbusClientTCPHeader_t *header_pending_location);
@@ -144,7 +144,7 @@ void modbusClientTCPSoftInit(ModbusClientTCP_t *mctcp_obj, ModbusPDU_t *pdu_sour
  * @precondition Yok
  * @postcondition Yok
  */
-void modbusClientTCPLLInit(ModbusClientTCP_t *mctcp_obj,
+void modbusClientTCPLLInit(PModbusClientTCP_t ModbusClientTCPObj,
 		TransmitOperation_LL transmitDriver,
 		ReceiveOperation_LL receiveDriver,
 		ReceiveStop_LL receiveStopDriver);
@@ -156,7 +156,7 @@ void modbusClientTCPLLInit(ModbusClientTCP_t *mctcp_obj,
  * @precondition Yok
  * @postcondition Yok
  */
-MCTCP_Confirmation_t ModbusClientTCPRun(ModbusClientTCP_t *mctcp_obj);
+MCTCP_Confirmation_t ModbusClientTCPRun(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief Host-server dan yapilmasi istenilen islem talep-listesine ekleyenmektedir.
  * @param mctcp_obj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
@@ -174,14 +174,14 @@ MCTCP_Confirmation_t ModbusClientTCPRun(ModbusClientTCP_t *mctcp_obj);
  * @precondition Yok
  * @postcondition Yok
  */
-char modbusClientTCPRequestAdd(ModbusClientTCP_t *mctcp_obj, int8_t unit_id,
+char modbusClientTCPRequestAdd(PModbusClientTCP_t ModbusClientTCPObj, int8_t unit_id,
 		uint8_t func_no, uint16_t start_addr, uint16_t reg_count, int16_t *data);
 /*
  * @brief
  * @param
  * @return
  */
-void modbusClientTCPRequestCallbackAdd(ModbusClientTCP_t *mctcp_obj, CallbackFunc callBack);
+void modbusClientTCPRequestCallbackAdd(PModbusClientTCP_t ModbusClientTCPObj, CallbackFunc callBack);
 /*
  * @brief Baglanti kurulacak olan host-server cihazin IP adresini belirler.
  * @param mctcp_obj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
@@ -193,34 +193,35 @@ void modbusClientTCPRequestCallbackAdd(ModbusClientTCP_t *mctcp_obj, CallbackFun
  * @precondition Yok
  * @postcondition Yok
  */
-void setModbusClientTCPRemoteIP(ModbusClientTCP_t *mctcp_obj,
+void setModbusClientTCPRemoteIP(PModbusClientTCP_t ModbusClientTCPObj,
 		uint8_t ip4, uint8_t ip3, uint8_t ip2, uint8_t ip1);
 /*
  * @brief Baglanti saglanacak olan cihazin (host-server) MODBUSTCP icin kullanmakta oldugu port
  * 			bilgisini belirtir.
- * @param mctcp_obj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
+ * @param ModbusClientTCPObj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
  * @param port TCP protokolunde kullanilan port degeridir. ModbusTCP icin 502 standart degeridir.
  * @return Yok
  * @precondition Yok
  * @postcondition Yok
  */
-void setModbusClientTCPRemotePort(ModbusClientTCP_t *mctcp_obj, uint16_t port);
+void setModbusClientTCPRemotePort(PModbusClientTCP_t ModbusClientTCPObj, uint16_t port);
+uint16_t getModbusClientTCPRemotePort(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief Ilk firsatta host-servera gonderilecek paketin header bilgisini verir.
- * @param mctcp_obj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
+ * @param ModbusClientTCPObj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
  * @return ADU bilgisini
  * @precondition Yok
  * @postcondition Yok
  */
-ModbusClientTCPHeader_t getModbusClientTCPHeaderCurrentReq(ModbusClientTCP_t *mctcp_obj);
+ModbusClientTCPHeader_t getModbusClientTCPHeaderCurrentReq(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief En son host-servera gonderilmis olan paketin header bilgisini verir
- * @param mctcp_obj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
+ * @param ModbusClientTCPObj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
  * @return ADU bilgisini
  * @precondition Yok
  * @postcondition Yok
  */
-ModbusClientTCPHeader_t getModbusClientTCPHeaderLastExecutedReq(ModbusClientTCP_t *mctcp_obj);
+ModbusClientTCPHeader_t getModbusClientTCPHeaderLastExecutedReq(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief Herhangi bir paket icin zaman asimi karar verilmeden once gecmesi gereken sure bilgisi
  * @param timeout_ms
@@ -228,68 +229,86 @@ ModbusClientTCPHeader_t getModbusClientTCPHeaderLastExecutedReq(ModbusClientTCP_
  * @precondition Yok
  * @postcondition Yok
  */
-void setModbusClientTCPTimeout(ModbusClientTCP_t *mctcp_obj, uint16_t timeout_ms);
+void setModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj, uint16_t timeout_ms);
 /*
  * @brief Paket cevaplari icin belirlenmis olan zaman-asimi suresini soyler
- * @param mctcp_obj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
+ * @param ModbusClientTCPObj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
  * @return Paketler icin musade edilen zaman-asimi suresi
  * @precondition Yok
  * @postcondition Yok
  */
-uint16_t getModbusClientTCPTimeout(ModbusClientTCP_t *mctcp_obj);
+uint16_t getModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj);
 /*
- * @brief ModbusClientTCP nesnesine  PDU nesnesini baglar. Bu islem uygulama katmani
+ * @brief ModbusClientTCPObj nesnesine  PDU nesnesini baglar. Bu islem uygulama katmani
  * 			tarafindan pdu_obj icin alan ayrilmasi ile mumkundur.
  * @param pdu_obj Modbus protokol nesnesini belirtir.
  * @return Yok
  * @precondition Yok
  * @postcondition Yok
  */
-void setModbusClientTCPRegisterPDU(ModbusClientTCP_t *mctcp_obj, ModbusPDU_t *pdu_obj);
+void setModbusClientTCPRegisterPDU(PModbusClientTCP_t ModbusClientTCPObj, ModbusPDU_t *pdu_obj);
 /*
  * @brief ModbusClientTCP nesnesine baglanmis olan pdu nesnesini ayirir.
- * @param mctcp_obj
+ * @param ModbusClientTCPObj
  * @return Yok
  * @precondition Yok
  * @postcondition Yok
  */
-void setModbusClientTCPUnRegisterPDU(ModbusClientTCP_t *mctcp_obj);
+void setModbusClientTCPUnRegisterPDU(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief ModbusClientTCP nesnesi icin kullanilan gonderim bufferinin adresini verir
- * @param mctcp_obj
+ * @param ModbusClientTCPObj
  * @return TransmitBuffer adres degeri
  * @precondition Yok
  * @postcondition Yok
  */
-int8_t *getModbusClientTCPTransmitBufferAdr(ModbusClientTCP_t *mctcp_obj);
+int8_t *getModbusClientTCPTransmitBufferAdr(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief ModbusClientTCP nesnesi icin kullanilan alim bufferi adres degerini verir
- * @param mctcp_obj
+ * @param ModbusClientTCPObj
  * @return ReceiveBuffer adresi degeri
  * @precondition Yok
  * @postcondition Yok
  */
-int8_t *getModbusClientTCPReceiveBufferAdr(ModbusClientTCP_t *mctcp_obj);
+int8_t *getModbusClientTCPReceiveBufferAdr(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief Host cihaz icin belirtilmis olunan IP adresini okumak icin kullanilir
- * @param mctccp_obj
+ * @param ModbusClientTCPObj
  * @return MCTCP_IP_x IP byte indeksi. MCTCP_IP_4 MSB dir
  * @precondition Yok
  * @postcondition Yok
  */
-uint8_t getModbusClientTCP_IP1(ModbusClientTCP_t *mctcp_obj);
-uint8_t getModbusClientTCP_IP2(ModbusClientTCP_t *mctcp_obj);
-uint8_t getModbusClientTCP_IP3(ModbusClientTCP_t *mctcp_obj);
-uint8_t getModbusClientTCP_IP4(ModbusClientTCP_t *mctcp_obj);
-uint8_t getModbusClientTCP_IPx(ModbusClientTCP_t *mctcp_obj, ModbusClientTCPIP_e MCTCP_IP_x);
+uint8_t getModbusClientTCP_IP1(PModbusClientTCP_t ModbusClientTCPObj);
+uint8_t getModbusClientTCP_IP2(PModbusClientTCP_t ModbusClientTCPObj);
+uint8_t getModbusClientTCP_IP3(PModbusClientTCP_t ModbusClientTCPObj);
+uint8_t getModbusClientTCP_IP4(PModbusClientTCP_t ModbusClientTCPObj);
+uint8_t getModbusClientTCP_IPx(PModbusClientTCP_t ModbusClientTCPObj, ModbusClientTCPIP_e MCTCP_IP_x);
 /*
  * @brief Zaman asima ugrayan paketler icin kac kez daha gonderimlerinin deneneceginin
  *  		ayarlandigi fonksiyondur.
- * @param mctcp_obj
+ * @param ModbusClientTCPObj
  * @papram value Tekrar gonderim denemesi limiti
  * @return Yok
  * @precondition Yok
  * @postcondition Yok
  */
-void setModbusClientTCPRetryLimit(ModbusClientTCP_t *mctcp_obj, uint16_t value);
+void setModbusClientTCPRetryLimit(PModbusClientTCP_t ModbusClientTCPObj, uint16_t value);
+/*
+* @brief Talep listesinde gonderilmeyi bekleyen modbus paket miktarini belirtir.
+* @param ModbusClientTCPObj
+* @papram value Tekrar gonderim denemesi limiti
+* @return Yok
+* @precondition Yok
+* @postcondition Yok
+*/
+uint16_t getModbusClientTCPReqListItemCount(PModbusClientTCP_t ModbusClientTCPObj);
+/*
+* @brief Gonderilmis ve cevabi beklenmekte olan modbus paket miktarini belirtir.
+* @param ModbusClientTCPObj
+* @papram value Tekrar gonderim denemesi limiti
+* @return Yok
+* @precondition Yok
+* @postcondition Yok
+*/
+uint16_t getModbusClientTCPPendListItemCount(PModbusClientTCP_t ModbusClientTCPObj);
 #endif /* MODBUSCLIENT_H_ */
