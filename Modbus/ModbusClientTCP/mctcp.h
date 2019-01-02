@@ -75,7 +75,7 @@ typedef struct{
 
 	uint16_t transid_cnt;					/* Her islem icin surekli artan islem id
 	 	 	 	 	 	 	 	 	 	 	 belirteci*/
-	uint16_t timeout_response;				/* Server'a iletilen her istek icin
+	uint32_t timeout_response;				/* Server'a iletilen her istek icin
 	 	 	 	 	 	 	 	 	 	 	 cevap zaman asim siniri [milisaniye]*/
 	uint16_t transaction_max;				/* Maksimumum pespese gonderilecek bilecek
 	 	 	 	 	 	 	 	 	 	 	 istek sayisi. Burada belirtilen miktarda
@@ -224,12 +224,12 @@ ModbusClientTCPHeader_t getModbusClientTCPHeaderCurrentReq(PModbusClientTCP_t Mo
 ModbusClientTCPHeader_t getModbusClientTCPHeaderLastExecutedReq(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief Herhangi bir paket icin zaman asimi karar verilmeden once gecmesi gereken sure bilgisi
- * @param timeout_ms
+ * @param timeout
  * @return Yok
  * @precondition Yok
  * @postcondition Yok
  */
-void setModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj, uint16_t timeout_ms);
+void setModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj, uint32_t timeout);
 /*
  * @brief Paket cevaplari icin belirlenmis olan zaman-asimi suresini soyler
  * @param ModbusClientTCPObj ModbusClientTCP ile ilgili tum veriler bu structure icinde yer almaktadir.
@@ -237,7 +237,7 @@ void setModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj, uint16_t t
  * @precondition Yok
  * @postcondition Yok
  */
-uint16_t getModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj);
+uint32_t getModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj);
 /*
  * @brief ModbusClientTCPObj nesnesine  PDU nesnesini baglar. Bu islem uygulama katmani
  * 			tarafindan pdu_obj icin alan ayrilmasi ile mumkundur.

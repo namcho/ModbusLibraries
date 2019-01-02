@@ -21,7 +21,7 @@ typedef struct{
 	uint16_t remote_ip[2];			/* Data'nin hangi adrese gonderilecek*/
 	uint16_t remote_port;			/* TCP/IP icin port bilgisi*/
 	ModbusRequest_t req_wfr;		/* Paket icerigi*/
-	uint16_t timeout_pending;		/* Zaman asimi zamanlayicisi*/
+	uint32_t timeout_pending;		/* Zaman asimi zamanlayicisi*/
 	uint16_t retries;				/* Paketin kac kez timeout'a dustugunu bildirir*/
 	PendingItemStatus_e status;		/* ilgili PendingItem_t elemani icin kullanima uygun
 	 	 	 	 	 	 	 	 	 olup olmadigini belirtir*/

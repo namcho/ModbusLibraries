@@ -26,11 +26,13 @@
 #include <unistd.h>
 #include <pthread.h>
 #include "ModbusClientTCP/mctcp.h"
+#include "state_machine.h"
+#include <windows.h>
 
 #define THREAD_MODBUSRUN_USEC	10
 
-#define REQ_LEN	10
-#define PEN_LEN	5
+#define REQ_LEN	20
+#define PEN_LEN	1
 ModbusClientTCP_t ModClientTCPObj;
 ModbusPDU_t ModClientTCPPduOBJ;
 ModbusRequest_t MCReqGSMListObj[REQ_LEN];
@@ -47,26 +49,44 @@ int8_t Transmit(int8_t *buffer, uint16_t size);
 uint16_t Receive(int8_t *buffer, uint16_t size);
 int8_t ReceiveStop();
 
-
+// Application layer ram fields
 int16_t ccs32x_params[20];
 int16_t ccs32x_monitor[20];
 int16_t ccs32x_41000[20];
+int16_t ccs32x_io[19];
 int16_t state_compressor;
 int16_t ccs32x_startcmd;
 MCTCP_Confirmation_t confirmation;
 
 void CallbackCompControl(int16_t *register_arr, uint16_t reg_count);
+void CallbackCompFuncOut2(int16_t *register_arr, uint16_t reg_count);
+void CallbackCompFuncOut3(int16_t *register_arr, uint16_t reg_count);
+void CallbackCompFuncOut4(int16_t *register_arr, uint16_t reg_count);
+void CallbackCompFuncOut5(int16_t *register_arr, uint16_t reg_count);
 
-int8_t isRequestEmpty();
+
 int8_t connRemoteDevice();
 void printFrame(int8_t *buffer, uint16_t size);
 void printCompState();
+int8_t parseStringIPtoByteIP(char *strip, uint16_t size_strip, uint8_t *intip, uint16_t size_intip);
 
+SYSTEMTIME systime;
+void printTime(SYSTEMTIME *systime){
+	printf("Day: %d H: %d M: %d\n", systime->wDay, systime->wHour, systime->wMinute);
+}
+
+// Threads
 void *ThreadReceive(void *param);
 void *ThreadModbus(void *param);
 void *ThreadCompRequest(void *param);
+pthread_mutex_t threadMutexRcv = PTHREAD_MUTEX_INITIALIZER;
 ssize_t rcv_size;
 uint16_t rcv_err = 0;
+
+// State machines
+StateMachineRetun_e smActionControl(void *param);
+StateMachineRetun_e smHandleControl(void *param);
+
 int main(int argc, char *argv[]) {
 	int var;
 	pthread_t threadReceive, threadMobus, threadCompRequest;
@@ -75,15 +95,19 @@ int main(int argc, char *argv[]) {
 		printf("Argument%d: %s\n", var, argv[var]);
 	}
 
-
 	modbusClientTCPSoftInit(&ModClientTCPObj, &ModClientTCPPduOBJ,
 			MCReqGSMListObj, REQ_LEN, MCPenGSMListObj, PEN_LEN, MCHeadReqGSMObj, MCHeadPenGSMObj);
 	modbusClientTCPLLInit(&ModClientTCPObj, Transmit, Receive, ReceiveStop);
 	setModbusClientTCPRemoteIP(&ModClientTCPObj, 5, 26, 125, 14);		// GSM Modem Turkcell ip
 //	setModbusClientTCPRemoteIP(&ModClientTCPObj, 213, 14, 20, 186);		// Enko ip
 	setModbusClientTCPRemotePort(&ModClientTCPObj, 502);
-	setModbusClientTCPTimeout(&ModClientTCPObj, 2000);	// 0.2 saniye timeout 2*1000/((float)THREAD_MODBUSRUN_USEC * 0.001f)
-	setModbusClientTCPRetryLimit(&ModClientTCPObj, 2);
+	setModbusClientTCPTimeout(&ModClientTCPObj, 20000);	// 2 saniye timeout 2*1000/((float)THREAD_MODBUSRUN_USEC * 0.001f)
+	setModbusClientTCPRetryLimit(&ModClientTCPObj, 1);
+
+//	printf("CallbackCompFuncOut2() address: %p\n", CallbackCompFuncOut2);
+//	printf("CallbackCompFuncOut3() address: %p\n", CallbackCompFuncOut3);
+//	printf("CallbackCompControl() address: %p\n", CallbackCompControl);
+//	sleep(2);
 
 	connRemoteDevice();
 
@@ -96,6 +120,7 @@ int main(int argc, char *argv[]) {
 	pthread_join(threadCompRequest, NULL);
 	return EXIT_SUCCESS;
 }
+
 
 #define PACKET_PRINT_LEN	20
 int8_t Transmit(int8_t *buffer, uint16_t size){
@@ -170,12 +195,43 @@ void CallbackCompControl(int16_t *register_arr, uint16_t reg_count){
 	}
 }
 
-int8_t isRequestEmpty(){
-	if(abs(ModClientTCPObj.reqlist_obj.queue.head - ModClientTCPObj.reqlist_obj.queue.tail) == 0){
-		return 1;
+void CallbackCompFuncOut2(int16_t *register_arr, uint16_t reg_count){
+	static int16_t outfunc = 0;
+
+	outfunc = (systime.wHour >= 18 && systime.wHour <= 19) ? 4 : 0;
+	if(register_arr[0] == 0){
+		printf("Output2 Function is going to be 4.\n");
+		modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_WRITE_SINGLE, 40077, 1, &outfunc);
 	}
-	else{
-		return 0;
+}
+
+void CallbackCompFuncOut3(int16_t *register_arr, uint16_t reg_count){
+	static int16_t outfunc = 0;
+
+	outfunc = (systime.wHour >= 18 && systime.wHour <= 19) ? 3 : 0;
+	if(register_arr[0] == 0){
+		printf("Output3 function is going to be 3.\n");
+		modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_WRITE_SINGLE, 40081, 1, &outfunc);
+	}
+}
+
+void CallbackCompFuncOut4(int16_t *register_arr, uint16_t reg_count){
+	static int16_t outfunc = 0;
+
+	outfunc = (systime.wHour >= 18 && systime.wHour <= 19) ? 2 : 0;
+	if(register_arr[0] == 0){
+		printf("Output4 function is going to be 2.\n");
+		modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_WRITE_SINGLE, 40085, 1, &outfunc);
+	}
+}
+
+void CallbackCompFuncOut5(int16_t *register_arr, uint16_t reg_count){
+	static int16_t outfunc = 0;
+
+	outfunc = (systime.wHour >= 18 && systime.wHour <= 19) ? 1 : 0;
+	if(register_arr[0] == 0){
+		printf("Output5 function is going to be 1.\n");
+		modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_WRITE_SINGLE, 40089, 1, &outfunc);
 	}
 }
 
@@ -245,10 +301,18 @@ void printCompState(){
 	}
 }
 
-void *ThreadReceive(void *param){
+int8_t parseStringIPtoByteIP(char *strip, uint16_t size_strip, uint8_t *intip, uint16_t size_intip){
 
+
+	return 0;
+}
+
+void *ThreadReceive(void *param){
+	ssize_t receive_len;
 	while(1){
-		rcv_size = recv(sockid, ((ModbusClientTCP_t *)param)->buffer_rx, 260, 0);
+		receive_len = recv(sockid, ((ModbusClientTCP_t *)param)->buffer_rx, 260, 0);
+//		pthread_mutex_lock(&threadMutexRcv);
+		rcv_size = receive_len;
 		if(rcv_size > 260){
 			rcv_err++;
 			rcv_size = 0;
@@ -259,22 +323,19 @@ void *ThreadReceive(void *param){
 			rcv_err++;
 		}
 	}
+//	pthread_mutex_unlock(&threadMutexRcv);
 
 	return NULL;
 }
 
 void *ThreadModbus(void *param){
-#define STATE_MONITORING	1
-#define STATE_WAIT_MON		2
-#define STATE_COMMAND		3
-#define STATE_WAIT_COMMD	4
-
 	ModbusClientTCP_t *modbus;
 
 	modbus = (ModbusClientTCP_t *)param;
 	while(1){
 
 		confirmation = ModbusClientTCPRun(modbus);
+		// mc_log kutuphanesi ile haberlesme basarim testi yapilacak.
 
 		usleep(THREAD_MODBUSRUN_USEC);
 	}
@@ -283,47 +344,20 @@ void *ThreadModbus(void *param){
 }
 
 void *ThreadCompRequest(void *param){
-	int8_t state_comm;
 	ModbusClientTCP_t *modbus;
 	ModbusClientTCPHeader_t header, header_prv;
 	static uint16_t rcv_err_prv = 0;
+	StateMachine_t SMControlObj;
 
 	modbus = (ModbusClientTCP_t *)param;
-	while(1){
-		switch(state_comm){
-		case STATE_MONITORING:
-			printf("ThreadModbus state is STATE_MONITORING\n");
-			if(isRequestEmpty()){
-				modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_READ_HOLDING, 41000, 15, ccs32x_41000);
-				modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_READ_HOLDING, 42000, 19, ccs32x_monitor);
-				modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_READ_HOLDING, 40000, 10, ccs32x_params);
-				state_comm = STATE_WAIT_MON;
-			}
-			break;
-		case STATE_WAIT_MON:
-			printf("ThreadModbus state is STATE_WAIT_MON\n");
-			if(modbus->heap_pendinglist.field_used == 0){
-				state_comm = STATE_COMMAND;
-			}
-			break;
-		case STATE_COMMAND:
-			printf("ThreadModbus state is STATE_COMMAND\n");
-			modbusClientTCPRequestAdd(&ModClientTCPObj, 1, FN_CODE_READ_HOLDING, 41000, 15, ccs32x_41000);
-			modbusClientTCPRequestCallbackAdd(&ModClientTCPObj, CallbackCompControl);
-			state_comm = STATE_WAIT_COMMD;
-			break;
-		case STATE_WAIT_COMMD:
-			printf("ThreadModbus state is STATE_WAIT_COMMD\n");
-			if(modbus->heap_pendinglist.field_used == 0){
-				// Logger burada calisacak.
-				state_comm = STATE_MONITORING;
-			}
-			break;
-		default:
-			state_comm = STATE_MONITORING;
-			break;
-		}
 
+	stateMachineSoftInit(&SMControlObj);
+	setStateMachineInterfaces(&SMControlObj, smActionControl, smHandleControl);
+	setStateMachineWaitParam(&SMControlObj, 1);
+
+	while(1){
+
+		stateMachineRun(&SMControlObj, modbus);
 		if(rcv_err != rcv_err_prv){
 
 			printf("Receive error has been catch up. Receive err counter is :%d\n",rcv_err);
@@ -331,18 +365,76 @@ void *ThreadCompRequest(void *param){
 			close(sockid);
 			connRemoteDevice();
 		}
-
-		header = getModbusClientTCPHeaderLastExecutedReq(&ModClientTCPObj);
+		GetLocalTime(&systime);
+		header = getModbusClientTCPHeaderLastExecutedReq(modbus);
 		if(header.transaction != header_prv.transaction){
+			printTime(&systime);
 			printCompState();
 			printf("Last completed header transaction: %d\n", header.transaction);
 			printf("Last completed header protocol: %d\n", header.protocol);
 			printf("Last completed header len: %d\n", header.len);
 			printf("Last completed header unit-id: %d\n", header.unit_id);
-			printf("Head: %d  Tail: %d\n", ModClientTCPObj.reqlist_obj.queue.head, ModClientTCPObj.reqlist_obj.queue.tail);
+			printf("Head: %d  Tail: %d Field in use: %d\n", modbus->reqlist_obj.queue.head,
+					modbus->reqlist_obj.queue.tail, modbus->reqlist_obj.queue.field_used);
 		}
 		header_prv = header;
 		sleep(1);
 	}
 	return NULL;
 }
+
+StateMachineRetun_e smActionControl(void *param){
+	StateMachineRetun_e ret;
+	ModbusClientTCP_t *modbus;
+
+	ret = eSTATE_MACHINE_RETSTAY;
+	modbus = (ModbusClientTCP_t *)param;
+	printf("StateMachine ControlObj is on Action. RequestList items: %d\n", getModbusClientTCPReqListItemCount(modbus));
+	if(getModbusClientTCPReqListItemCount(modbus) == 0){
+
+		modbusClientTCPRequestAdd(modbus, 1, FN_CODE_READ_HOLDING, 41000, 15, ccs32x_41000);
+		modbusClientTCPRequestCallbackAdd(modbus, CallbackCompControl);
+
+		if(systime.wDay >= 1 && systime.wDay <= 5){
+			if((systime.wHour == 8 || systime.wHour == 18) && systime.wMinute <= 10){
+				modbusClientTCPRequestAdd(modbus, 1, FN_CODE_READ_HOLDING, 40077, 1, &ccs32x_io[4]);
+				modbusClientTCPRequestCallbackAdd(modbus, CallbackCompFuncOut2);
+
+				modbusClientTCPRequestAdd(modbus, 1, FN_CODE_READ_HOLDING, 40081, 1, &ccs32x_io[8]);
+				modbusClientTCPRequestCallbackAdd(modbus, CallbackCompFuncOut3);
+
+				modbusClientTCPRequestAdd(modbus, 1, FN_CODE_READ_HOLDING, 40085, 1, &ccs32x_io[12]);
+				modbusClientTCPRequestCallbackAdd(modbus, CallbackCompFuncOut4);
+
+				modbusClientTCPRequestAdd(modbus, 1, FN_CODE_READ_HOLDING, 40089, 1, &ccs32x_io[16]);
+				modbusClientTCPRequestCallbackAdd(modbus, CallbackCompFuncOut5);
+			}
+		}
+
+		// Periyodik okunan CCS32x bilgileri
+		modbusClientTCPRequestAdd(modbus, 1, FN_CODE_READ_HOLDING, 42000, 19, ccs32x_monitor);
+
+		ret = eSTATE_MACHINE_RETNEXT;
+	}
+
+	return ret;
+}
+
+StateMachineRetun_e smHandleControl(void *param){
+	ModbusClientTCP_t *modbus;
+
+	modbus = (ModbusClientTCP_t *)param;
+	// Log alalim
+
+	printf("State Machine Handle Control...\n");
+	if(modbus->heap_pendinglist.field_used != 0){
+		printf("PendingStatus: %d, PendingRegAdr: %d, PenRegCount: %d, PenCallback: %p\n",
+				modbus->pendings_list[0].status, modbus->pendings_list[0].req_wfr.start_addr, modbus->pendings_list[0].req_wfr.reg_count,
+				modbus->pendings_list[0].req_wfr.CallBack);
+		return eSTATE_MACHINE_RETSTAY;
+	}
+	else{
+		return eSTATE_MACHINE_RETNEXT;
+	}
+}
+

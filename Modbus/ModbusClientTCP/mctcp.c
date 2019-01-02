@@ -6,7 +6,6 @@
  */
 #include "mctcp.h"
 #include <stddef.h>
-#include <stdio.h>
 
 #define TCP_HEADER_SIZE sizeof(ModbusClientTCPHeader_t)
 
@@ -126,7 +125,7 @@ MCTCP_Confirmation_t ModbusClientTCPRun(PModbusClientTCP_t ModbusClientTCPObj){
 	// uygun bir data nin geldigi anlasilir.
 	// Exception durumunda 2 bytelik veri alinir...
 	byte_received = ModbusClientTCPObj->IReceive_LL(ModbusClientTCPObj->buffer_rx, 260);
-	if(byte_received >= 12 || byte_received == 9){
+	if(byte_received >= 9){
 		// Buffer'daki bilgileri parse edelim
 		parserADUHeader(ModbusClientTCPObj->buffer_rx, &header);
 
@@ -289,11 +288,11 @@ ModbusClientTCPHeader_t getModbusClientTCPHeaderLastExecutedReq(PModbusClientTCP
 	return header;
 }
 
-void setModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj, uint16_t timeout_ms){
-	ModbusClientTCPObj->timeout_response = timeout_ms;
+void setModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj, uint32_t timeout){
+	ModbusClientTCPObj->timeout_response = timeout;
 }
 
-uint16_t getModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj){
+uint32_t getModbusClientTCPTimeout(PModbusClientTCP_t ModbusClientTCPObj){
 	return ModbusClientTCPObj->timeout_response;
 }
 
