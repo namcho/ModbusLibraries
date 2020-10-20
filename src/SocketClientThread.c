@@ -387,11 +387,11 @@ void *ThreadCompRequest(void *param){
 		if(header.transaction != header_prv.transaction){
 //			printTime(&systime);
 			printCompState();
-			printf(BLU "Last completed header transaction: %d\n", header.transaction);
-			printf(BLU "Last completed header protocol: %d\n", header.protocol);
-			printf(BLU "Last completed header len: %d\n", header.len);
-			printf(BLU "Last completed header unit-id: %d\n", header.unit_id);
-			printf(BLU "Head: %d  Tail: %d Field in use: %d\n", modbus->reqlist_obj.queue.head,
+			printf(MAG "Last completed header transaction: %d\n", header.transaction);
+			printf(MAG "Last completed header protocol: %d\n", header.protocol);
+			printf(MAG "Last completed header len: %d\n", header.len);
+			printf(MAG "Last completed header unit-id: %d\n", header.unit_id);
+			printf(MAG "Head: %d  Tail: %d Field in use: %d\n", modbus->reqlist_obj.queue.head,
 					modbus->reqlist_obj.queue.tail, modbus->reqlist_obj.queue.field_used);
 		}
 		header_prv = header;
