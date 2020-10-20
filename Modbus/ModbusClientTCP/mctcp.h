@@ -106,7 +106,6 @@ typedef struct{
 	uint16_t (*IReceive_LL)(int8_t *buffer, uint16_t size);
 	int8_t (*IReceiveStop_LL)();
 
-
 }ModbusClientTCP_t, *PModbusClientTCP_t;
 /*
  * @brief ModbusClientTCP modulu icin tahsis edilen ram alanlari atamasi ve

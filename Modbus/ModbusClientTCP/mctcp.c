@@ -17,7 +17,7 @@ static void packageSendFromPendingList(PModbusClientTCP_t ModbusClientTCPObj, ui
 static uint16_t addNewRequestToPendingList(PModbusClientTCP_t ModbusClientTCPObj, ModbusRequest_t *request_new);
 static void removeItemFromPendingList(PModbusClientTCP_t ModbusClientTCPObj, int16_t index);
 
-static int8_t isCurrentMsgInsidePendingList(PModbusClientTCP_t ModbusClientTCPObj, int16_t transaction_id, int16_t *pending_index);
+static int8_t isCurrentMsgInsidePendingList(PModbusClientTCP_t ModbusClientTCPObj, uint16_t transaction_id, int16_t *pending_index);
 static int8_t isCurrentMsgProtocolCorrect(PModbusClientTCP_t ModbusClientTCPObj, int16_t protocol);
 static int8_t isCurrentMsgFuncCodeCorrect(PModbusClientTCP_t ModbusClientTCPObj, int8_t func_code_received, uint16_t which_pending);
 
@@ -87,7 +87,7 @@ void modbusClientTCPLLInit(PModbusClientTCP_t ModbusClientTCPObj,
 }
 
 MCTCP_Confirmation_t ModbusClientTCPRun(PModbusClientTCP_t ModbusClientTCPObj){
-	static ModbusClientTCPHeader_t header;
+	static ModbusClientTCPHeader_t header, header_prv;
 	static MCTCP_Confirmation_t confirmation;
 	MCTCP_Confirmation_e retval;
 
@@ -128,21 +128,29 @@ MCTCP_Confirmation_t ModbusClientTCPRun(PModbusClientTCP_t ModbusClientTCPObj){
 	if(byte_received >= 9){
 		// Buffer'daki bilgileri parse edelim
 		parserADUHeader(ModbusClientTCPObj->buffer_rx, &header);
-
+		printf("parserADUHeader()\n");
+		if(header.transaction != header_prv.transaction){
+			printf("################DEBUG################\n");
+			printf("TransID: %d, Proto: %d, Len: %d, Unit-id: %d\n", header.transaction, header.protocol, header.len, header.unit_id);
+			header_prv = header;
+			printf("################DEBUG################\n");
+		}
 		// Pending listesindeki verilerin transaction_id lerini gelen cevabinkiyle kiyasla
 		if(isCurrentMsgInsidePendingList(ModbusClientTCPObj, header.transaction, &msg_pending_index)){
 			retval = MCTCP_RUN_NEGATIVE;	// PDU func_code dogrulana kadar NEGATIVE durumdayiz
-
+			printf("isCurrentMsgInsidePendingList()\n");
 			// Header dosyasindaki protocol alanini kontrol et 0x0000 olmali
 			if(isCurrentMsgProtocolCorrect(ModbusClientTCPObj, header.protocol)){
 				// PDU bilgisinin fonksiyon kodunu kontrol et
+				printf("isCurrentMsgProtocolCorrect()\n");
 				if(isCurrentMsgFuncCodeCorrect(ModbusClientTCPObj, ModbusClientTCPObj->pdu_obj->buffer_rx[0], msg_pending_index)){
 					retval = MCTCP_RUN_POZITIVE;
-
+					printf("isCurrentMsgFuncCodeCorrect()\n");
 					// Gelen pakete/gonderilmis olan istege gore Standart modbus islemleri yapilacak
 					modbusPDUResponseOperation(ModbusClientTCPObj, msg_pending_index);
 				}
 				removeItemFromPendingList(ModbusClientTCPObj, msg_pending_index);
+				printf("removeItemFromPendingList()\n");
 			}
 		}
 	}
@@ -229,7 +237,7 @@ char modbusClientTCPRequestAdd(PModbusClientTCP_t ModbusClientTCPObj, int8_t uni
 		// Transaction sayacini arttiralim
 		ModbusClientTCPObj->transid_cnt++;
 
-		if(ModbusClientTCPObj->transid_cnt >= 65535){
+		if(ModbusClientTCPObj->transid_cnt >= 65534){
 			ModbusClientTCPObj->transid_cnt = 1;
 		}
 		return 1;
@@ -533,25 +541,44 @@ void removeItemFromPendingList(PModbusClientTCP_t ModbusClientTCPObj, int16_t in
  * @precondition  Yok
  * @postcondition Yok
  */
-int8_t isCurrentMsgInsidePendingList(PModbusClientTCP_t ModbusClientTCPObj, int16_t transaction_id, int16_t *pending_index){
+int8_t isCurrentMsgInsidePendingList(PModbusClientTCP_t ModbusClientTCPObj, uint16_t transaction_id, int16_t *pending_index){
 	int8_t retval = 0;
 	int16_t i;
 	uint16_t transid;
+	int16_t j;
+	uint32_t val;
+	int8_t *buffer;
+	int8_t err;
 
+	buffer = ModbusClientTCPObj->buffer_rx;
 	for (i = 0; i < ModbusClientTCPObj->transaction_max; i++) {
 		transid = ((ModbusClientTCPHeader_t *)ModbusClientTCPObj->pendings_list[i].req_wfr.header)->transaction;
 		if(transid == transaction_id){
+			retval = 1;
 			break;
 		}
-		else{
+		//else{
 			// Eslemeyen transaction_id
-			transid = 0xffff;
-		}
+		//	transid = 0xffff;
+		//	printf("####DEBUG####\n");
+		//	printf("TransactionID missmatch, received transid: %d, i: %d\n", transid, i);
+		//	printf("Received Packet:\n");
+		//	for (j = 0; j < 60; ++j) {
+		//		val = 0;
+		//		val = *(buffer+j);
+		//		val &= 0x000000FF;
+		//		printf("%2x", val);
+		//		printf(" ");
+		//		if(((j % 20) == 0) & (j > 0)){
+		//			printf("\n");
+		//		}
+		//	}
+		//}
 	}
 
 	if(transid != 0xffff){
+
 		*pending_index = i;
-		retval = 1;
 	}
 
 	return retval;
