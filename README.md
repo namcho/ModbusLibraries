@@ -1,5 +1,5 @@
 # ModbusClientTCPLibrary_Test
-This Modbus library writen for embedded systems.
+This Modbus library written for embedded systems.
 
 It has, ModbusClient-RTU, ModbusServer-RTU and ModbusClientTCP.
 
