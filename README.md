@@ -2,6 +2,7 @@
 This Modbus library has written for embedded systems.
 
 It has, ModbusMaster-RTU, ModbusSlave-RTU and ModbusClientTCP.
+Modbus-RTU libraries work on many devices in the field.
 
 ModbusServerTCP will be added in near future.
 
