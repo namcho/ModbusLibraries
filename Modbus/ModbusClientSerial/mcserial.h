@@ -2,10 +2,10 @@
  * mc_serial.h
  *
  *  Created on: 24 Jan 2018
- *      Author: EN
+ *      Author: Nazim Yildiz
  *
  *      1. Sorunlu paketler icin loglama yapilacak, retry sistemi olacak ve
- *      	retry degerine ulasan paketler belirli aralýklarla denenecek... Boylece
+ *      	retry degerine ulasan paketler belirli araliklarla denenecek... Boylece
  *      	hat bant genisligi en verimli sekilde kullanilmis olacak.
  *
  *      	Not: retry sistemi application layer katmanina birakilmasi daha dogru bir
@@ -16,8 +16,8 @@
  *      	gonderilip sonuc olarak error sayisinin donduruldugu fonks yazilcak.
  *      4. Loglama islemi kapatilip acilabilen bir yapida olacak ve her modbus-client-serial
  *      	nesnesi icin ayri ayri calisabilecek.
- *      5. 1 en yükssek olmak üzere, en yüksek hata sayisina erisilmis paket bilgisini gonder,
- *      	2. en yüksek hata sayisina erisilmis paket bilgisini gonder seklinde fonksiyon yazilacak
+ *      5. 1 en yukssek olmak uzere, en yuksek hata sayisina erisilmis paket bilgisini gonder,
+ *      	2. en yuksek hata sayisina erisilmis paket bilgisini gonder seklinde fonksiyon yazilacak
  *
  */
 
@@ -31,6 +31,7 @@
 
 typedef enum{
 	MCSERIAL_STATE_IDLE = 0,
+	MCSERIAL_STATE_TRANSCOMPLT,
 	MCSERIAL_STATE_TURN,
 	MCSERIAL_STATE_WAIT,
 	MCSERIAL_STATE_PROCESS,
@@ -46,12 +47,12 @@ typedef struct{
 	int8_t buffer_rx[256];
 
 	ModbusRequest_t req_last_completed;	/* Son tamamlanan istek bilgisini icerir, client tarafindan gonderilen
-	talep zaman asimina ugramadan hatali/hatasiz tamamlanmis olabilir*/
-	int8_t header_reqlast;							/* req_last_completed nesnesinin header pointeri icin alan tahsisi*/
+										talep zaman asimina ugramadan hatali/hatasiz tamamlanmis olabilir*/
+	int8_t header_reqlast;				/* req_last_completed nesnesinin header pointeri icin alan tahsisi*/
 	ModbusRequest_t req_waitreply;		/* En son gonderilen ve cevap bekleyen paketi belirtir.*/
-	int8_t header_req_wfr;							/* req_waitreply nesnesinin header pointeri icin alan tahsisi*/
+	int8_t header_req_wfr;				/* req_waitreply nesnesinin header pointeri icin alan tahsisi*/
 	ModbusClientRequester_t req_obj;	/* Talep listesinin tutuldugu nesnedir.*/
-	uint16_t retry;											/* Soru yasanan paketi tekrar gonderme islemi icin kullanilir*/
+	uint16_t retry;						/* Soru yasanan paketi tekrar gonderme islemi icin kullanilir*/
 	uint16_t param_retry;
 
 	// Turn around suresi
@@ -61,8 +62,8 @@ typedef struct{
 	uint16_t param_wfr;					/* Parametrik wfr suresi*/
 	uint16_t timer_wfr;					/* Wfr suresini sayan degisken*/
 
-	uint16_t t35;					/* 3.5char lik yaklasik sure*/
-	uint16_t ticker;				/* t35 suresi icin ticker*/
+	uint16_t t35;						/* 3.5char lik yaklasik sure*/
+	uint16_t ticker;					/* t35 suresi icin ticker*/
 	uint16_t rcv_size;
 	uint16_t rcv_size_prev;
 
@@ -77,9 +78,13 @@ typedef struct{
 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 arayuz fonksiyonu*/
 	int8_t (*IReceiveStopLL)();								/* Fiziksel alim islemini durduran arayuz
 	 	 	 	 	 	 	 	 	 	 	 	 	 	 	 fonksiyonu*/
-
+	int8_t (*ITransmitComplete_LL)();						/* Gonderim isleminin durumu bildiren arayuz.
+															 RS485 icin gereklidir, gonderim*/
 	// Log nesnesi
 	ModbusClientLog_t logfile;
+
+	uint32_t transmit_packets;			/* Toplam gonderilmis paket sayisi, performans izleme amaclidir*/
+	uint32_t received_packets;			/* Dogru bir sekilde alinmis paket sayisidir, performans izleme amaclidir*/
 }ModbusClientSerial_t;
 
 
@@ -88,7 +93,7 @@ typedef struct{
  * @param
  * @return
  */
-int8_t modbusClientSerialSoftInit(ModbusClientSerial_t *mcserial_obj, ModbusPDU_t *pdu_source,
+int8_t modbusClientSerialSoftInit(ModbusClientSerial_t *MbClientSerialObj, ModbusPDU_t *pdu_source,
 		ModbusRequest_t *request_location, uint16_t request_quantity,
 		ModbusClientSerialHeader_t *header_request_location);
 /*
@@ -98,18 +103,19 @@ int8_t modbusClientSerialSoftInit(ModbusClientSerial_t *mcserial_obj, ModbusPDU_
  * @param
  * @param
  */
-void modbusClientSerialLLInit(ModbusClientSerial_t *mcserial_obj,
+void modbusClientSerialLLInit(ModbusClientSerial_t *MbClientSerialObj,
 		TransmitOperation_LL transmitDriver,
 		ReceiveOperation_LL receiveDriver,
-		ReceiveStop_LL receiveStopDriver);
+		ReceiveStop_LL receiveStopDriver,
+		TransmitComplete_LL transmitCompleteDriver);
 /*
  * @brief Modbus algoritmasinin kosturuldugu fonksiyondur
- * @param mcserial_obj
+ * @param MbClientSerialObj
  */
-void modbusClientSerialRun(ModbusClientSerial_t *mcserial_obj);
+void modbusClientSerialRun(ModbusClientSerial_t *MbClientSerialObj);
 /*
  * @brief Modbus talep paketi kuyruga eklenir
- * @param mcserial_obj
+ * @param MbClientSerialObj
  * @param slave_addr
  * @param func_no
  * @param start_addr
@@ -117,27 +123,27 @@ void modbusClientSerialRun(ModbusClientSerial_t *mcserial_obj);
  * @param data
  * @return ERROR_REQUEST_e turunden sonuc bilgisi dondurur
  */
-ERROR_REQUEST_e modbusClientSerialRequestAdd(ModbusClientSerial_t *mcserial_obj,
+ERROR_REQUEST_e modbusClientSerialRequestAdd(ModbusClientSerial_t *MbClientSerialObj,
 		uint8_t slave_addr,
 		uint8_t func_no, uint16_t start_addr, uint16_t reg_count, int16_t *data);
 /*
  * @brief Son eklenmis olan REQUEST icin callBack fonksiyonunu atar
- * @param mcserial_obj
+ * @param MbClientSerialObj
  * @param callBack
  */
-void modbusClientSerialRequestCallbackAdd(ModbusClientSerial_t *mcserial_obj, CallbackFunc callBack);
+void modbusClientSerialRequestCallbackAdd(ModbusClientSerial_t *MbClientSerialObj, CallbackFunc callBack);
 /*
  * @brief
  * @param
  * @return
  */
-void setModbusClientSerialRegisterPDU(ModbusClientSerial_t *mcserial_obj, ModbusPDU_t *pdu_obj);
+void setModbusClientSerialRegisterPDU(ModbusClientSerial_t *MbClientSerialObj, ModbusPDU_t *PduObj);
 /*
  * @brief
  * @param
  * @return
  */
-void setModbusClientSerialUnRegisterPDU(ModbusClientSerial_t *mcserial_obj);
+void setModbusClientSerialUnRegisterPDU(ModbusClientSerial_t *MbClientSerialObj);
 /*
  * @brief En son gonderilen ve halen cevabi beklenen talebin hangi cihaza iletildigi bilgisini verir
  * @param
@@ -145,7 +151,7 @@ void setModbusClientSerialUnRegisterPDU(ModbusClientSerial_t *mcserial_obj);
  * @precondition
  * @postcondition
  */
-ModbusClientSerialHeader_t getModbusHeaderSerialCurrentReq(ModbusClientSerial_t *mcserial_obj);
+ModbusClientSerialHeader_t getModbusHeaderSerialCurrentReq(ModbusClientSerial_t *MbClientSerialObj);
 /*
  * @brief En son gonderilen ve cevabi alinmis olunan talebin hangi cihaza iletildigi bilgisini verir
  * @param
@@ -153,48 +159,54 @@ ModbusClientSerialHeader_t getModbusHeaderSerialCurrentReq(ModbusClientSerial_t 
  * @precondition
  * @postcondition
  */
-ModbusClientSerialHeader_t getModbusHeaderSerialLastExecutedReq(ModbusClientSerial_t *mcserial_obj);
+ModbusClientSerialHeader_t getModbusHeaderSerialLastExecutedReq(ModbusClientSerial_t *MbClientSerialObj);
 /*
  * @brief
  * @param
  * @return
  */
-void setModbusClientSerialLogFile(ModbusClientSerial_t *mcserial_obj, ModbusClientLogVars_t *fileadr, uint16_t len_elements);
-void setModbusClientSerialLogStop(ModbusClientSerial_t *mcserial_obj);
+void setModbusClientSerialLogFile(ModbusClientSerial_t *MbClientSerialObj, ModbusClientLogVars_t *fileadr, uint16_t len_elements);
+void setModbusClientSerialLogStop(ModbusClientSerial_t *MbClientSerialObj);
 /*
  * @brief
  * @param
  * @return
  */
-void setModbusClientSerialRetryParam(ModbusClientSerial_t *mcserial_obj, uint16_t retry_limit);
+void setModbusClientSerialRetryParam(ModbusClientSerial_t *MbClientSerialObj, uint16_t retry_limit);
 /*
  * @brief
  * @param
  * @return
  */
-uint16_t getModbusClientSerialRetryParam(ModbusClientSerial_t * mcserial_obj);
+uint16_t getModbusClientSerialRetryParam(ModbusClientSerial_t * MbClientSerialObj);
 /*
  * @brief
  * @param
  * @return
  */
-void setModbusClientSerialTad(ModbusClientSerial_t *mcserial_obj, uint16_t tad);
+void setModbusClientSerialTad(ModbusClientSerial_t *MbClientSerialObj, uint16_t tad);
 /*
  * @brief
  * @param
  * @return
  */
-uint16_t getModbusClientSerialTad(ModbusClientSerial_t *mcserial_obj);
+uint16_t getModbusClientSerialTad(ModbusClientSerial_t *MbClientSerialObj);
 /*
  * @brief
  * @param
  * @return
  */
-void setModbusClientSerialWfr(ModbusClientSerial_t *mcserial_obj, uint16_t wfr);
+void setModbusClientSerialWfr(ModbusClientSerial_t *MbClientSerialObj, uint16_t wfr);
 /*
  * @brief
  * @param
  * @return
  */
-uint16_t getModbusClientSerialWfr(ModbusClientSerial_t *mcserial_obj);
+uint16_t getModbusClientSerialWfr(ModbusClientSerial_t *MbClientSerialObj);
+/*
+ * @brief
+ * @param
+ * @return
+ */
+uint16_t getModbusClientSerialReqAreaAvaible(ModbusClientSerial_t *MbClientSerialObj);
 #endif /* MODBUSCLIENTSERIAL_MCSERIAL_H_ */
