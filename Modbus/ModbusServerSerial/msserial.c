@@ -17,7 +17,7 @@ static int8_t DEBUG_Transmit(int8_t *buffer, uint16_t size){
 }
 static uint16_t DEBUG_Receive(int8_t *buffer, uint16_t size){
 //#warning Receive interface hasn't implemented!
-	return -1;
+	return 1;
 }
 static int8_t DEBUG_ReceiveStop(){
 //#warning ReceiveStop interface hasn't implemented!
@@ -29,158 +29,193 @@ static int8_t DEBUG_TransmitComplete(){
 }
 
 // ModbusServerSerial durum fonksiyonlari
-static int8_t _StateIDLE(uint16_t *ticker, uint16_t *t35, uint16_t *size_rcv_current, uint16_t *size_rcv_prev);
-static int8_t _CheckAddres(int8_t *buffer_rx, uint8_t *device_adr, uint16_t len);
+static int8_t _StateIDLE(PModbusServerSerial_t MbServerSerialObj);
+static int8_t _CheckAddres(PModbusServerSerial_t MbServerSerialObj);
 static int8_t _StateCheckCRC(int8_t *buffer_rx, uint16_t size);
 static void _StateProcessPDU(ModbusPDU_t *MbPDU);
 
-int8_t modbusServerSerialSoftInit(ModbusServerSerial_t *msserial_obj, ModbusPDU_t *pdu_source){
+int8_t modbusServerSerialSoftInit(PModbusServerSerial_t MbServerSerialObj, ModbusPDU_t *pdu_source){
 
-	setModbusServerSerialRegisterPDU(msserial_obj, pdu_source);
-	setModbusServerSerialSlaveAddress(msserial_obj, 1);
-	setModbusServerSerialControlInterval(msserial_obj, 1);
+	setModbusServerSerialRegisterPDU(MbServerSerialObj, pdu_source);
+	setModbusServerSerialSlaveAddress(MbServerSerialObj, 1);
+	setModbusServerSerialControlInterval(MbServerSerialObj, 1);
 
-	msserial_obj->state = MSSerial_STATE_IDLE;
-	msserial_obj->size_rcv = 0;
-	msserial_obj->size_rcv_prev = 0;
-	msserial_obj->t15 = 1;
-	msserial_obj->t35 = 3;
-	msserial_obj->tick = 0;
+	MbServerSerialObj->state = MSSerial_STATE_IDLE;
+	MbServerSerialObj->size_rcv = 0;
+	MbServerSerialObj->size_rcv_prev = 0;
+	MbServerSerialObj->t15 = 1;
+	MbServerSerialObj->t35 = 3;
+	MbServerSerialObj->tick = 0;
+	setModbusServerSerialWait(MbServerSerialObj, 10);
 
-	msserial_obj->ITransmitOperation = DEBUG_Transmit;
-	msserial_obj->IReceiveOperation = DEBUG_Receive;
-	msserial_obj->IReceiveStop = DEBUG_ReceiveStop;
-	msserial_obj->ITransmitComplete_LL = DEBUG_TransmitComplete;
+	MbServerSerialObj->ITransmitOperation = DEBUG_Transmit;
+	MbServerSerialObj->IReceiveOperation = DEBUG_Receive;
+	MbServerSerialObj->IReceiveStop = DEBUG_ReceiveStop;
+	MbServerSerialObj->ITransmitComplete_LL = DEBUG_TransmitComplete;
 	return 0;
 }
 
-void modbusServerSerialLLInit(ModbusServerSerial_t *msserial_obj,
+void modbusServerSerialLLInit(PModbusServerSerial_t MbServerSerialObj,
 		TransmitOperation_LL transmitDriver,
 		ReceiveOperation_LL receiveDriver,
 		ReceiveStop_LL receiveStopDriver,
 		TransmitComplete_LL transmitCompleteDriver){
 
-	msserial_obj->ITransmitOperation = transmitDriver;
-	msserial_obj->IReceiveOperation = receiveDriver;
-	msserial_obj->IReceiveStop = receiveStopDriver;
-	msserial_obj->ITransmitComplete_LL = transmitCompleteDriver;
+	MbServerSerialObj->ITransmitOperation = transmitDriver;
+	MbServerSerialObj->IReceiveOperation = receiveDriver;
+	MbServerSerialObj->IReceiveStop = receiveStopDriver;
+	MbServerSerialObj->ITransmitComplete_LL = transmitCompleteDriver;
 }
 
-void modbusServerSerialRun(ModbusServerSerial_t *msserial_obj){
+void modbusServerSerialRun(PModbusServerSerial_t MbServerSerialObj){
 	uint16_t crc;
 
-	if(msserial_obj->state == MSSerial_STATE_IDLE){
+	if(MbServerSerialObj->state == MSSerial_STATE_IDLE){
+
 		/// Fiziksel portdan(USB, UART, ..) alinan byte sayisi bilgisi alinmalidir.
-		msserial_obj->size_rcv = msserial_obj->IReceiveOperation(msserial_obj->buffer_rx, 256);
+		MbServerSerialObj->size_rcv = MbServerSerialObj->IReceiveOperation(MbServerSerialObj->buffer_rx, 256);
 
 		/// Byte sayisi alinmaya basladiktan sonra, T35[tick] ile belirtilen sure kadar alinan byte sayisi degismez ise
 		/// gelen paketin degerlendirilmesi asamasina gecilir.
-		if(_StateIDLE(&msserial_obj->tick, &msserial_obj->t35, &msserial_obj->size_rcv, &msserial_obj->size_rcv_prev)){
-			msserial_obj->state = MSSerial_STATE_ADR;
-			msserial_obj->IReceiveStop();
+		if(_StateIDLE(MbServerSerialObj)){
+
+			MbServerSerialObj->state = MSSerial_STATE_ADR;
+			MbServerSerialObj->IReceiveStop();
 		}
-		msserial_obj->size_rcv_prev = msserial_obj->size_rcv;
+
+		MbServerSerialObj->size_rcv_prev = MbServerSerialObj->size_rcv;
 	}
 
-	if(msserial_obj->state == MSSerial_STATE_ADR){
-		msserial_obj->state = _CheckAddres(msserial_obj->buffer_rx, &msserial_obj->slave_address, msserial_obj->size_rcv) == 1 ?
-				MSSerial_STATE_CRC : MSSerial_STATE_IDLE;
-	}
-	else if(msserial_obj->state == MSSerial_STATE_CRC){
-		msserial_obj->state = _StateCheckCRC(msserial_obj->buffer_rx, msserial_obj->size_rcv) == -1 ? MSSerial_STATE_IDLE : MSSerial_STATE_PDU;
-	}
-	else if(msserial_obj->state == MSSerial_STATE_PDU){
-		_StateProcessPDU(msserial_obj->modbus_pdu);
-		msserial_obj->buffer_tx[0] = getModbusServerSerialSlaveAddress(msserial_obj);
+	if(MbServerSerialObj->state == MSSerial_STATE_ADR){
 
-		crc = ModbusCRC((uint8_t *)msserial_obj->buffer_tx, msserial_obj->modbus_pdu->response_size + 1);
-		msserial_obj->buffer_tx[msserial_obj->modbus_pdu->response_size + 1] = (int8_t)crc;
-		msserial_obj->buffer_tx[msserial_obj->modbus_pdu->response_size + 2] = crc >> 8;
-
-		msserial_obj->ITransmitOperation(msserial_obj->buffer_tx, msserial_obj->modbus_pdu->response_size + 3);
-		msserial_obj->state = MSSerial_STATE_WAIT;
+		MbServerSerialObj->state = _CheckAddres(MbServerSerialObj) == 1 ? MSSerial_STATE_CRC : MSSerial_STATE_IDLE;
 	}
-	else if(msserial_obj->state == MSSerial_STATE_WAIT){
+	else if(MbServerSerialObj->state == MSSerial_STATE_CRC){
+
+		MbServerSerialObj->state = _StateCheckCRC(MbServerSerialObj->buffer_rx, MbServerSerialObj->size_rcv) == -1 ? MSSerial_STATE_IDLE : MSSerial_STATE_PDU;
+	}
+	else if(MbServerSerialObj->state == MSSerial_STATE_PDU){
+
+		_StateProcessPDU(MbServerSerialObj->modbus_pdu);
+		MbServerSerialObj->buffer_tx[0] = getModbusServerSerialSlaveAddress(MbServerSerialObj);
+
+		crc = ModbusCRC((uint8_t *)MbServerSerialObj->buffer_tx, MbServerSerialObj->modbus_pdu->response_size + 1);
+		MbServerSerialObj->buffer_tx[MbServerSerialObj->modbus_pdu->response_size + 1] = (int8_t)crc;
+		MbServerSerialObj->buffer_tx[MbServerSerialObj->modbus_pdu->response_size + 2] = crc >> 8;
+
+		MbServerSerialObj->state = MSSerial_STATE_WAITOPER;
+
+	}
+	else if(MbServerSerialObj->state == MSSerial_STATE_WAITOPER){
+
+		if(MbServerSerialObj->tick <= MbServerSerialObj->param_wait){
+
+			MbServerSerialObj->tick += MbServerSerialObj->control_intervals;
+		}
+		else{
+
+			MbServerSerialObj->tick = 0;
+			MbServerSerialObj->state = MSSerial_STATE_RESPONSE;
+		}
+	}
+
+	/* Bekleme isleminin ardindan paketi hemen iletelim, 1 cycle daha beklemeye gerek yok */
+	if(MbServerSerialObj->state == MSSerial_STATE_RESPONSE){
+
+		MbServerSerialObj->ITransmitOperation(MbServerSerialObj->buffer_tx, MbServerSerialObj->modbus_pdu->response_size + 3);
+		MbServerSerialObj->state = MSSerial_STATE_WAITDIR;
+	}
+	else if(MbServerSerialObj->state == MSSerial_STATE_WAITDIR){
+
 		// RS485 gonderim islemi tamamlanana kadar DIR pinin TX modunda tutumak icin...
-		if(msserial_obj->ITransmitComplete_LL() == 1){
-			msserial_obj->state = MSSerial_STATE_IDLE;
+		if(MbServerSerialObj->ITransmitComplete_LL() == 1){
+			MbServerSerialObj->state = MSSerial_STATE_IDLE;
 		}
 	}
 }
 
-void setModbusServerSerialRegisterPDU(ModbusServerSerial_t *msserial_obj, ModbusPDU_t *pdu_source){
-	msserial_obj->modbus_pdu = pdu_source;
+void setModbusServerSerialRegisterPDU(PModbusServerSerial_t MbServerSerialObj, ModbusPDU_t *pdu_source){
+	MbServerSerialObj->modbus_pdu = pdu_source;
 
-	pdu_source->buffer_rx = &msserial_obj->buffer_rx[1];
-	pdu_source->buffer_tx = &msserial_obj->buffer_tx[1];
+	pdu_source->buffer_rx = &MbServerSerialObj->buffer_rx[1];
+	pdu_source->buffer_tx = &MbServerSerialObj->buffer_tx[1];
 }
 
-void setModbusServerSerialUnRegisterPDU(ModbusServerSerial_t *msserial_obj, ModbusPDU_t *pdu_source){
-	msserial_obj->modbus_pdu = NULL;
+void setModbusServerSerialUnRegisterPDU(PModbusServerSerial_t MbServerSerialObj, ModbusPDU_t *pdu_source){
+	MbServerSerialObj->modbus_pdu = NULL;
 }
 
-void setModbusServerSerialSlaveAddress(ModbusServerSerial_t *msserial_obj, uint8_t address){
-	msserial_obj->slave_address = address;
+void setModbusServerSerialSlaveAddress(PModbusServerSerial_t MbServerSerialObj, uint8_t address){
+	MbServerSerialObj->slave_address = address;
 }
 
-uint8_t getModbusServerSerialSlaveAddress(ModbusServerSerial_t *msserial_obj){
+uint8_t getModbusServerSerialSlaveAddress(PModbusServerSerial_t MbServerSerialObj){
 
-	return msserial_obj->slave_address;
+	return MbServerSerialObj->slave_address;
 }
 
-int8_t *getModbusServerSerialTransmitBufferAdr(ModbusServerSerial_t *msserial_obj){
+int8_t *getModbusServerSerialTransmitBufferAdr(PModbusServerSerial_t MbServerSerialObj){
 
-	return msserial_obj->buffer_tx;
+	return MbServerSerialObj->buffer_tx;
 }
 
-int8_t *getModbusServerSerialReceiveBufferAdr(ModbusServerSerial_t *msserial_obj){
+int8_t *getModbusServerSerialReceiveBufferAdr(PModbusServerSerial_t MbServerSerialObj){
 
-	return msserial_obj->buffer_rx;
+	return MbServerSerialObj->buffer_rx;
 }
 
-void setModbusServerSerialControlInterval(ModbusServerSerial_t *msserial_obj, uint16_t time_ms){
+void setModbusServerSerialControlInterval(PModbusServerSerial_t MbServerSerialObj, uint16_t time_ms){
 
-	msserial_obj->control_intervals = time_ms;
+	MbServerSerialObj->control_intervals = time_ms;
 }
 
-void setModbusServerSerialT35(ModbusServerSerial_t *msserial_obj, uint16_t time_ms){
-	msserial_obj->t35 = time_ms;
+void setModbusServerSerialT35(PModbusServerSerial_t MbServerSerialObj, uint16_t time_ms){
+	MbServerSerialObj->t35 = time_ms;
 }
 
-uint16_t getModbusServerSerialControlInterval(ModbusServerSerial_t *msserial_obj){
+void setModbusServerSerialWait(PModbusServerSerial_t MbServerSerialObj, uint16_t time_ms){
 
-	return msserial_obj->control_intervals;
+	MbServerSerialObj->param_wait = time_ms;
+}
+
+uint16_t getModbusServerSerialControlInterval(PModbusServerSerial_t MbServerSerialObj){
+
+	return MbServerSerialObj->control_intervals;
 }
 
 //****************************
 // Private functions
 //****************************
-int8_t _StateIDLE(uint16_t *ticker, uint16_t *t35, uint16_t *size_rcv_current, uint16_t *size_rcv_prev){
+int8_t _StateIDLE(PModbusServerSerial_t MbServerSerialObj){
 
-	if(*size_rcv_current == 0)
+	if(MbServerSerialObj->size_rcv == 0){
 		return 0;
+	}
 
 	// Frame Start/End tespiti yapiliyor...
-	if(*size_rcv_current == *size_rcv_prev)
-		(*ticker)++;
-	else
-		*ticker = 0;
+	if(MbServerSerialObj->size_rcv == MbServerSerialObj->size_rcv_prev){
+		MbServerSerialObj->tick++;
+	}
+	else{
+		MbServerSerialObj->tick = 0;
+	}
 
-	if(*ticker >= *t35){
-		*ticker = 0;
-//		*size_rcv_current = 0;
-//		*size_rcv_prev = 0;
+	if(MbServerSerialObj->tick >= MbServerSerialObj->t35){
+		MbServerSerialObj->tick = 0;
 		return 1;
 	}
-	else
+	else{
 		return 0;
+	}
 }
 
-int8_t _CheckAddres(int8_t *buffer_rx, uint8_t *device_adr, uint16_t len){
-	if(buffer_rx[0] == *device_adr)
+int8_t _CheckAddres(PModbusServerSerial_t MbServerSerialObj){
+	if(MbServerSerialObj->buffer_rx[0] == MbServerSerialObj->slave_address){
 		return 1;
-	else
+	}
+	else{
 		return 0;
+	}
 }
 
 int8_t _StateCheckCRC(int8_t *buffer_rx, uint16_t size){
