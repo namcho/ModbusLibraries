@@ -29,7 +29,9 @@ typedef enum{
 	MSSerial_STATE_ADR,
 	MSSerial_STATE_CRC,
 	MSSerial_STATE_PDU,
-	MSSerial_STATE_WAIT,	//
+	MSSerial_STATE_WAITOPER,	// PDU islemlerinin halledilmesi icin bekleme
+	MSSerial_STATE_RESPONSE,
+	MSSerial_STATE_WAITDIR,		//
 }MSSerialStates_e;
 
 typedef struct{
@@ -56,7 +58,9 @@ typedef struct{
 	uint16_t tick;						/// bknz modbus programlama manueli
 	uint16_t control_intervals;			/// ModbusServerSerialRun() fonksiyonunun calistirilma periyodu
 
-}ModbusServerSerial_t;
+	uint16_t param_wait;				/// PDU islemleri icin ne kadar beklenilecegini belirtir
+
+}ModbusServerSerial_t, *PModbusServerSerial_t;
 
 /*
  * @brief         :
@@ -65,7 +69,7 @@ typedef struct{
  * @precondition  :
  * @postcondition :
  */
-int8_t modbusServerSerialSoftInit(ModbusServerSerial_t *msserial_obj, ModbusPDU_t *pdu_source);
+int8_t modbusServerSerialSoftInit(PModbusServerSerial_t MbServerSerialObj, ModbusPDU_t *pdu_source);
 
 /*
  * @brief         :
@@ -74,7 +78,7 @@ int8_t modbusServerSerialSoftInit(ModbusServerSerial_t *msserial_obj, ModbusPDU_
  * @precondition  :
  * @postcondition :
  */
-void modbusServerSerialLLInit(ModbusServerSerial_t *msserial_obj,
+void modbusServerSerialLLInit(PModbusServerSerial_t MbServerSerialObj,
 		TransmitOperation_LL transmitDriver,
 		ReceiveOperation_LL receiveDriver,
 		ReceiveStop_LL receiveStopDriver,
@@ -86,7 +90,7 @@ void modbusServerSerialLLInit(ModbusServerSerial_t *msserial_obj,
  * @precondition  :
  * @postcondition :
  */
-void modbusServerSerialRun(ModbusServerSerial_t *msserial_obj);
+void modbusServerSerialRun(PModbusServerSerial_t MbServerSerialObj);
 /*
  * @brief         :
  * @param[]       :
@@ -94,7 +98,7 @@ void modbusServerSerialRun(ModbusServerSerial_t *msserial_obj);
  * @precondition  :
  * @postcondition :
  */
-void setModbusServerSerialRegisterPDU(ModbusServerSerial_t *msserial_obj, ModbusPDU_t *pdu_source);
+void setModbusServerSerialRegisterPDU(PModbusServerSerial_t MbServerSerialObj, ModbusPDU_t *pdu_source);
 /*
  * @brief         :
  * @param[]       :
@@ -102,7 +106,7 @@ void setModbusServerSerialRegisterPDU(ModbusServerSerial_t *msserial_obj, Modbus
  * @precondition  :
  * @postcondition :
  */
-void setModbusServerSerialUnRegisterPDU(ModbusServerSerial_t *msserial_obj, ModbusPDU_t *pdu_source);
+void setModbusServerSerialUnRegisterPDU(PModbusServerSerial_t MbServerSerialObj, ModbusPDU_t *pdu_source);
 /*
  * @brief         :
  * @param[]       :
@@ -110,7 +114,7 @@ void setModbusServerSerialUnRegisterPDU(ModbusServerSerial_t *msserial_obj, Modb
  * @precondition  :
  * @postcondition :
  */
-void setModbusServerSerialSlaveAddress(ModbusServerSerial_t *msserial_obj, uint8_t address);
+void setModbusServerSerialSlaveAddress(PModbusServerSerial_t MbServerSerialObj, uint8_t address);
 /*
  * @brief         :
  * @param[]       :
@@ -118,7 +122,7 @@ void setModbusServerSerialSlaveAddress(ModbusServerSerial_t *msserial_obj, uint8
  * @precondition  :
  * @postcondition :
  */
-uint8_t getModbusServerSerialSlaveAddress(ModbusServerSerial_t *msserial_obj);
+uint8_t getModbusServerSerialSlaveAddress(PModbusServerSerial_t MbServerSerialObj);
 /*
  * @brief         :
  * @param[]       :
@@ -126,7 +130,7 @@ uint8_t getModbusServerSerialSlaveAddress(ModbusServerSerial_t *msserial_obj);
  * @precondition  :
  * @postcondition :
  */
-int8_t *getModbusServerSerialTransmitBufferAdr(ModbusServerSerial_t *msserial_obj);
+int8_t *getModbusServerSerialTransmitBufferAdr(PModbusServerSerial_t MbServerSerialObj);
 /*
  * @brief         :
  * @param[]       :
@@ -134,7 +138,7 @@ int8_t *getModbusServerSerialTransmitBufferAdr(ModbusServerSerial_t *msserial_ob
  * @precondition  :
  * @postcondition :
  */
-int8_t *getModbusServerSerialReceiveBufferAdr(ModbusServerSerial_t *msserial_obj);
+int8_t *getModbusServerSerialReceiveBufferAdr(PModbusServerSerial_t MbServerSerialObj);
 /*
  * @brief         :
  * @param[]       :
@@ -142,7 +146,7 @@ int8_t *getModbusServerSerialReceiveBufferAdr(ModbusServerSerial_t *msserial_obj
  * @precondition  :
  * @postcondition :
  */
-void setModbusServerSerialControlInterval(ModbusServerSerial_t *msserial_obj, uint16_t time_ms);
+void setModbusServerSerialControlInterval(PModbusServerSerial_t MbServerSerialObj, uint16_t time_ms);
 /*
  * @brief         :
  * @param[]       :
@@ -150,7 +154,8 @@ void setModbusServerSerialControlInterval(ModbusServerSerial_t *msserial_obj, ui
  * @precondition  :
  * @postcondition :
  */
-void setModbusServerSerialT35(ModbusServerSerial_t *msserial_obj, uint16_t time_ms);
+void setModbusServerSerialT35(PModbusServerSerial_t MbServerSerialObj, uint16_t time_ms);
+
 /*
  * @brief         :
  * @param[]       :
@@ -158,5 +163,14 @@ void setModbusServerSerialT35(ModbusServerSerial_t *msserial_obj, uint16_t time_
  * @precondition  :
  * @postcondition :
  */
-uint16_t getModbusServerSerialControlInterval(ModbusServerSerial_t *msserial_obj);
+void setModbusServerSerialWait(PModbusServerSerial_t MbServerSerialObj, uint16_t time_ms);
+
+/*
+ * @brief         :
+ * @param[]       :
+ * @return        :
+ * @precondition  :
+ * @postcondition :
+ */
+uint16_t getModbusServerSerialControlInterval(PModbusServerSerial_t MbServerSerialObj);
 #endif /* MODBUSSERVERSERIAL_MSSERIAL_H_ */
