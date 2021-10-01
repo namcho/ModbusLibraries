@@ -8,25 +8,10 @@
 #include "modbus_pdu.h"
 
 
-static void AddModbusPDUMultiWriteBuffer(struct MultiWriteBuffered *mWriteBufferedObj, int16_t register_val);
-static int8_t isAnyContextAvaible(ModbusPDU_t *pdu_obj);
-static int8_t enqueue(struct MultiWriteBuffered *mWriteBufferedObj, int16_t register_val);
-static int16_t dequeue(struct MultiWriteBuffered *mWriteBufferedObj);
-static void resetContext(ModbusPDU_t *pdu_obj, uint16_t context_no);
-
 void ModbusPDUInit(ModbusPDU_t *pdu_obj, IWriteParam FuncWriteParam, IReadParam FuncReadParam, IAddressCheck FuncAddressCheck){
 	pdu_obj->IParamRead = FuncReadParam;
 	pdu_obj->IParamWrite = FuncWriteParam;
 	pdu_obj->IParamAdressCheck = FuncAddressCheck;
-	pdu_obj->multi_write_onoff = MULTIWRITE_CONTEXT_OFF;
-}
-
-void setModbusPDUMWBuffer(ModbusPDU_t *pdu_obj, uint8_t context_no, int16_t *buffer, uint16_t size){
-	pdu_obj->mWriteBuffered[context_no].buffer = buffer;
-	pdu_obj->mWriteBuffered[context_no].size = size;
-	pdu_obj->mWriteBuffered[context_no].status = CONTEXT_STATUS_EMPTY;
-	resetContext(pdu_obj, context_no);
-	pdu_obj->multi_write_onoff = MULTIWRITE_CONTEXT_ON;
 }
 
 //Cevap icin paket olusturma fonksiyonlari: Bunlar pritave yapilabilir...
