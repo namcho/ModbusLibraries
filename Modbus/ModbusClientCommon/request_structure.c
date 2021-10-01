@@ -2,7 +2,7 @@
  * request_structure.c
  *
  *  Created on: 22 Jan 2018
- *      Author: EN
+ *      Author: Nazim Yildiz
  */
 
 #include "stddef.h"
@@ -30,13 +30,6 @@ ERROR_REQUEST_e modbusRequestAdd(ModbusRequest_t *mm_req_list, Queue_t *queue, v
 	}
 	/* ModbusTCP icin header boyutu 7 byte
 	 * ModbusSerial icin header boyutu 1 byte*/
-	// header boyutu sizeof komutuyla belirlendiginden dolayi
-	// mimariden mimariye degisebilir bu nedenle asagidaki denetim
-	// kaldirilmistir.
-//	if(!(header_size == 1 || header_size == 7)){
-//		retval = ERROR_HEADER_SIZE;
-//		return retval;
-//	}
 
 	/* Istek olusturuluyor*/
 	request.header = header;
@@ -85,7 +78,7 @@ char enqueueMC(ModbusRequest_t *requestList, Queue_t *queue, ModbusRequest_t *re
 			for (int16_t i = 0; i < req->header_size; ++i) {
 				*((char *)requestList[queue->head].header + i) = *((char *)req->header + i);
 			}
-//			memcpy(requestList[queue->head].header, req->header, req->header_size);
+
 			requestList[queue->head].header_size = req->header_size;
 
 			requestList[queue->head].func_no = req->func_no;
@@ -101,14 +94,12 @@ char enqueueMC(ModbusRequest_t *requestList, Queue_t *queue, ModbusRequest_t *re
 			if(queue->head >= queue->len){
 				queue->head = 0;
 			}
-			/* Daha sonra gelecek olan talep istegi icin bir sonraki liste alanini gosterelim*/
-//			queue->head = (queue->head >= queue->len) ? 0 : (queue->head + 1);
+
 			retval = 1;
 			break;
 		}
 		else{
 
-//			queue->head = (queue->head >= queue->len) ? 0 : (queue->head + 1);
 			queue->head++;
 			if(queue->head >= queue->len){
 				queue->head = 0;
