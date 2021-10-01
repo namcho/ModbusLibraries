@@ -54,7 +54,7 @@ typedef struct{
  * @precondition  :
  * @postcondition :
  */
-void ModbusPDUInit(ModbusPDU_t *pdu_obj, IWriteParam FuncWriteParam, IReadParam FuncReadParam, IAddressCheck FuncAddressCheck);
+void ModbusPDUInit(ModbusPDU_t *PduObj, IWriteParam FuncWriteParam, IReadParam FuncReadParam, IAddressCheck FuncAddressCheck);
 
 /*
  * @brief         :
@@ -63,10 +63,10 @@ void ModbusPDUInit(ModbusPDU_t *pdu_obj, IWriteParam FuncWriteParam, IReadParam 
  * @precondition  :
  * @postcondition :
  */
-void ResponsePacketReadHolding(ModbusPDU_t *pdu_obj);
-void ResponsePacketWriteSingle(ModbusPDU_t *pdu_obj);
-void ResponsePacketWriteMultiple(ModbusPDU_t *pdu_obj);
-void ResponsePacketException(ModbusPDU_t *pdu_obj, int8_t EXCEPTION_CODEx);
+void ResponsePacketReadHolding(ModbusPDU_t *PduObj);
+void ResponsePacketWriteSingle(ModbusPDU_t *PduObj);
+void ResponsePacketWriteMultiple(ModbusPDU_t *PduObj);
+void ResponsePacketException(ModbusPDU_t *PduObj, int8_t EXCEPTION_CODEx);
 
 //Master icin gerekli paket olusturma fonksiyonlari
 /*
@@ -76,7 +76,7 @@ void ResponsePacketException(ModbusPDU_t *pdu_obj, int8_t EXCEPTION_CODEx);
  * @precondition
  * @postcondition
  */
-void RequestPacketReadHolding(ModbusPDU_t *pdu_obj, ModbusRequest_t *request);
+void RequestPacketReadHolding(ModbusPDU_t *PduObj, ModbusRequest_t *request);
 /*
  * @brief
  * @param
@@ -84,7 +84,7 @@ void RequestPacketReadHolding(ModbusPDU_t *pdu_obj, ModbusRequest_t *request);
  * @precondition
  * @postcondition
  */
-void RequestPacketWriteSingle(ModbusPDU_t *pdu_obj, ModbusRequest_t *request);
+void RequestPacketWriteSingle(ModbusPDU_t *PduObj, ModbusRequest_t *request);
 /*
  * @brief
  * @param
@@ -92,7 +92,6 @@ void RequestPacketWriteSingle(ModbusPDU_t *pdu_obj, ModbusRequest_t *request);
  * @precondition
  * @postcondition
  */
-void RequestPacketWriteMultiple(ModbusPDU_t *pdu_obj, ModbusRequest_t *request);
-
+void RequestPacketWriteMultiple(ModbusPDU_t *PduObj, ModbusRequest_t *request);
 
 #endif /* MODBUS_PDU_H_ */
