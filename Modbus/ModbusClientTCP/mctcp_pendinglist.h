@@ -2,7 +2,7 @@
  * mctcp_pendinglist.h
  *
  *  Created on: 24 Jan 2018
- *      Author: EN
+ *      Author: Nazim Yildiz
  */
 
 #ifndef MODBUSCLIENTTCP_MCTCP_PENDINGLIST_H_
